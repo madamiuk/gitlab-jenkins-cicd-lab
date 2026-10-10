@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laboratorium CI/CD — GitLab CE + Jenkins + Nginx</title>
+<style>
+:root {
+  --bg:#0b1020; --panel:#111827; --panel2:#182235; --text:#e8edf6; --muted:#a9b5c7;
+  --line:#2b3950; --accent:#63b3ed; --accent2:#a78bfa; --ok:#5ee09a; --warn:#f5c76b;
+  --code:#080d18;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:auto;padding:0 28px 70px}
+header{padding:72px 0 44px;border-bottom:1px solid var(--line);margin-bottom:34px}
+.kicker{text-transform:uppercase;letter-spacing:.14em;color:var(--accent);font-weight:700;font-size:.82rem}
+h1{font-size:clamp(2.2rem,6vw,4.5rem);line-height:1.03;margin:.25em 0 .3em;letter-spacing:-.04em}
+.subtitle{font-size:1.2rem;color:var(--muted);max-width:850px}
+.meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.badge{padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:.9rem}
+nav{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 26px;margin:28px 0 46px}
+nav h2{margin:0 0 12px;font-size:1.15rem}
+nav ol{columns:2;column-gap:35px;margin:0;padding-left:22px}
+nav li{margin:6px 0;break-inside:avoid}
+nav li span{display:inline-block;min-width:24px;color:var(--muted)}
+.chapter{padding:36px 0;border-top:1px solid var(--line)}
+.chapter>h2{display:flex;align-items:center;gap:14px;font-size:2rem;line-height:1.15;margin:0 0 28px}
+.num{display:grid;place-items:center;min-width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07111f;font-size:1.1rem;font-weight:800}
+h3{font-size:1.3rem;margin:34px 0 12px}
+p{max-width:930px}
+code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+p code,li code,td code{background:#172033;border:1px solid #26334a;padding:.12em .36em;border-radius:5px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:17px 19px;overflow:auto;box-shadow:0 8px 26px rgba(0,0,0,.14)}
+pre code{font-size:.91rem;line-height:1.55}
+.diagram{color:#d7e4f7;font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;line-height:1.35}
+table{border-collapse:collapse;width:100%;margin:18px 0 26px;background:var(--panel);border:1px solid var(--line)}
+th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--panel2);color:#dce7f6}
+.ok{color:var(--ok);font-weight:800}
+.note{border-left:4px solid var(--warn);background:rgba(245,199,107,.08);padding:14px 17px;margin:20px 0;border-radius:0 10px 10px 0}
+.result{border:1px solid var(--line);border-left:5px solid var(--ok);background:rgba(94,224,154,.08);padding:14px 17px;margin:22px 0;border-radius:0 10px 10px 0;font-weight:700}
+.result.big{font-size:1.15rem;text-align:center;padding:22px}
+footer{margin-top:45px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
+.top{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--line);padding:9px 12px;border-radius:10px}
+@media(max-width:760px){nav ol{columns:1}.wrap{padding:0 17px 50px}header{padding-top:45px}}
+@media print{
+  :root{--bg:#fff;--panel:#fff;--panel2:#f3f5f7;--text:#111;--muted:#555;--line:#ccc;--code:#f5f5f5;--accent:#245d8c;--accent2:#6744a5;--ok:#176b3a;--warn:#8a6510}
+  body{background:#fff;color:#111;font-size:10.5pt}
+  .wrap{max-width:none;padding:0}
+  header{padding-top:0}
+  nav{page-break-after:always}
+  .chapter{break-before:page}
+  pre,table,.note,.result{break-inside:avoid}
+  a{color:#111}
+  .top{display:none}
+}
+</style>
+</head>
+<body id="top">
+<div class="wrap">
+<header>
+<div class="kicker">Dokumentacja techniczna laboratorium</div>
+<h1>Laboratorium CI/CD<br>GitLab CE + Jenkins + Nginx</h1>
+<p class="subtitle">Budowa, konfiguracja, troubleshooting, automatyczny deployment, TLS, Protected Branch, Merge Request oraz końcowy audyt środowiska.</p>
+<div class="meta">
+<span class="badge">Debian GNU/Linux 13</span>
+<span class="badge">GitLab CE 19.4.1</span>
+<span class="badge">Jenkins 2.580.1</span>
+<span class="badge">Nginx</span>
+<span class="badge">OpenJDK 21</span>
+<span class="badge">aarch64</span>
+</div>
+</header>
+<nav>
+<h2>Spis treści</h2>
+<ol><li><a href="#ch-1"><span>1.</span> Cel laboratorium</a></li>
+<li><a href="#ch-2"><span>2.</span> Architektura środowiska</a></li>
+<li><a href="#ch-3"><span>3.</span> Przygotowanie Debian 13</a></li>
+<li><a href="#ch-4"><span>4.</span> Dodatkowy dysk 20 GB → SWAP</a></li>
+<li><a href="#ch-5"><span>5.</span> Jenkins</a></li>
+<li><a href="#ch-6"><span>6.</span> GitLab CE</a></li>
+<li><a href="#ch-7"><span>7.</span> Nginx + TLS / własne CA</a></li>
+<li><a href="#ch-8"><span>8.</span> Repozytorium Git i deployment przez Jenkins</a></li>
+<li><a href="#ch-9"><span>9.</span> Webhook i automatyczne CI/CD</a></li>
+<li><a href="#ch-10"><span>10.</span> Protected Branch + Merge Request</a></li>
+<li><a href="#ch-11"><span>11.</span> Bezpieczeństwo, porty i audyt</a></li>
+<li><a href="#ch-12"><span>12.</span> Testy końcowe i odbiór środowiska</a></li>
+<li><a href="#ch-13"><span>13.</span> Podsumowanie i dalszy rozwój środowiska</a></li></ol>
+</nav>
+<section class="chapter" id="ch-1"><h2><span class="num">1</span>Cel laboratorium</h2>
+<p>Celem laboratorium było zbudowanie kompletnego środowiska CI/CD na Debian GNU/Linux 13, łączącego GitLab CE, Jenkins i Nginx. Minimalne wymagania obejmowały dodatkowy dysk 20 GB jako SWAP, dostęp do Jenkins i GitLab przez nazwy DNS, repozytorium z przykładową stroną HTML, pobieranie aktualnego kodu przez Jenkins, deployment do <code>/var/www</code> oraz publikację strony przez Nginx.</p>
+<p>Środowisko zostało rozszerzone o HTTPS z własnym CA, automatyczny webhook GitLab → Jenkins, konto developerskie, Project Access Token, Protected Branch, Merge Request workflow oraz końcowy audyt usług i portów.</p>
+<div class="result pass">WYNIK KOŃCOWY: 6/6 wymagań podstawowych + BONUS CI/CD</div>
+</section>
+<section class="chapter" id="ch-2"><h2><span class="num">2</span>Architektura środowiska</h2>
+<h3>2.1. Serwer</h3>
+<table><tr><th>Element</th><th>Wartość</th></tr>
+<tr><td>Hostname</td><td><code>cicd01</code></td></tr>
+<tr><td>System</td><td>Debian GNU/Linux 13 (trixie)</td></tr>
+<tr><td>Kernel</td><td><code>6.12.111+deb13-arm64</code></td></tr>
+<tr><td>Architektura</td><td><code>aarch64</code></td></tr>
+<tr><td>RAM</td><td>~7.7 GiB</td></tr>
+<tr><td>IPv4</td><td><code>192.168.64.21/24</code></td></tr>
+<tr><td>Gateway / DNS</td><td><code>192.168.64.1</code></td></tr>
+<tr><td>Interfejs</td><td><code>enp0s1</code></td></tr>
+</table>
+<h3>2.2. Usługi i adresy</h3>
+<pre><code>http://domain/              → Nginx → /var/www/web-demo
+https://jenkins.domain/     → Nginx → 127.0.0.1:8080
+https://gitlab.domain/      → Nginx → GitLab Workhorse Unix socket
+
+GitLab Puma                 → 127.0.0.1:8081
+SSH                         → :22</code></pre>
+<h3>2.3. Przepływ CI/CD</h3>
+<pre class="diagram">Developer ma
+    │
+    │ feature branch / push
+    ▼
+GitLab — root/web-demo
+    │
+    │ Merge Request → protected main
+    ▼
+GitLab webhook HTTPS
+    │
+    ▼
+Jenkins — web-demo-deploy
+    │
+    ▼
+/var/www/web-demo/index.html
+    │
+    ▼
+Nginx
+    │
+    ▼
+http://domain/</pre>
+</section>
+<section class="chapter" id="ch-3"><h2><span class="num">3</span>Przygotowanie Debian 13</h2>
+<h3>3.1. Weryfikacja systemu</h3>
+<pre><code>cat /etc/os-release
+uname -a
+uname -m
+free -h
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+ip -br addr</code></pre>
+<p>Potwierdzono Debian 13, architekturę ARM64, około 7.7 GiB RAM oraz interfejs <code>enp0s1</code>.</p>
+
+<h3>3.2. Statyczny IPv4</h3>
+<pre><code>sudo cp /etc/network/interfaces /etc/network/interfaces.bak
+sudo vim /etc/network/interfaces</code></pre>
+<pre><code>source /etc/network/interfaces.d/*
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+allow-hotplug enp0s1
+iface enp0s1 inet static
+    address 192.168.64.21/24
+    gateway 192.168.64.1
+    dns-nameservers 192.168.64.1</code></pre>
+<pre><code>ip -br addr
+ip route
+ping 192.168.64.1
+ping 1.1.1.1</code></pre>
+
+<h3>3.3. Problem DNS po przejściu na statyczny adres</h3>
+<p>Po restarcie routing działał, ale nazwy DNS nie były rozwiązywane. Sam wpis <code>dns-nameservers</code> w konfiguracji ifupdown nie zapewnił trwałego resolvera w tym środowisku.</p>
+<pre><code>sudo cp /etc/resolv.conf /etc/resolv.conf.bak
+sudo vim /etc/resolv.conf</code></pre>
+<pre><code># Static DNS configuration for CI/CD lab server
+nameserver 192.168.64.1</code></pre>
+<pre><code>ping debian.org</code></pre>
+
+<h3>3.4. Hostname i lokalne nazwy</h3>
+<pre><code>sudo hostnamectl set-hostname cicd01
+hostname
+hostname -f
+sudo vim /etc/hosts</code></pre>
+<pre><code>127.0.0.1 localhost
+127.0.1.1 cicd01
+192.168.64.21 jenkins.domain gitlab.domain domain</code></pre>
+<pre><code>getent hosts jenkins.domain
+getent hosts gitlab.domain
+getent hosts domain</code></pre>
+
+<h3>3.5. Wyłączenie IPv6</h3>
+<pre><code>sudo vim /etc/sysctl.d/99-disable-ipv6.conf</code></pre>
+<pre><code># Disable IPv6 on the CI/CD lab server
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1</code></pre>
+<pre><code>sudo sysctl --system
+cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+ip -6 addr</code></pre>
+<p>Wartość <code>1</code> oraz brak adresów w <code>ip -6 addr</code> potwierdziły wyłączenie IPv6. Sam wpis <code>[::]:22</code> widoczny później w tabeli socketów nie był dowodem na aktywną komunikację IPv6.</p>
+
+<h3>3.6. OpenJDK 21</h3>
+<pre><code>sudo apt install -y openjdk-21-jdk fontconfig
+java --version
+javac --version</code></pre>
+<p>Zainstalowano OpenJDK <code>21.0.12.1</code>. Java: <code>/usr/lib/jvm/java-21-openjdk-arm64/bin/java</code>.</p>
+</section>
+<section class="chapter" id="ch-4"><h2><span class="num">4</span>Dodatkowy dysk 20 GB → SWAP</h2>
+<p>Dodatkowy dysk <code>/dev/vdb</code> o pojemności 20 GB przeznaczono w całości na SWAP. System posiadał już około 3.3 GB SWAP na <code>/dev/vda4</code>.</p>
+<pre><code>sudo fdisk /dev/vdb
+# GPT
+# jedna partycja /dev/vdb1
+# typ: Linux swap
+
+sudo mkswap /dev/vdb1
+sudo swapon /dev/vdb1
+sudo /usr/sbin/swapon --show
+free -h</code></pre>
+<p>UUID nowej przestrzeni SWAP:</p>
+<pre><code>b4afb5a9-f624-4cba-a313-967fbfd5c6bc</code></pre>
+<pre><code>sudo cp /etc/fstab /etc/fstab.bak
+sudo vim /etc/fstab</code></pre>
+<pre><code># Additional 20GB swap disk /dev/vdb1
+UUID=b4afb5a9-f624-4cba-a313-967fbfd5c6bc none swap sw 0 0</code></pre>
+<pre><code>sudo swapoff /dev/vdb1
+sudo swapon -a
+free -h</code></pre>
+<p>Po restarcie <code>/dev/vdb1</code> pozostawał aktywny, a łączny SWAP wynosił około 23 GiB.</p>
+<div class="result pass">PASS — dodatkowy dysk 20 GB działa jako trwały Linux SWAP.</div>
+</section>
+<section class="chapter" id="ch-5"><h2><span class="num">5</span>Jenkins</h2>
+<h3>5.1. Instalacja</h3>
+<p>Dodano oficjalne repozytorium Jenkins LTS i zainstalowano Jenkins wraz z wymaganym środowiskiem Java. Finalna wersja Jenkins: <code>2.580.1</code>.</p>
+<pre><code>sudo apt update
+sudo apt install -y jenkins
+sudo systemctl enable --now jenkins
+sudo systemctl status jenkins</code></pre>
+<p>Początkowo Jenkins nasłuchiwał na <code>0.0.0.0:8080</code>. Wykonano Initial Setup Wizard, zainstalowano Suggested Plugins, utworzono konto administratora i ustawiono Jenkins Location na <code>https://jenkins.domain/</code>.</p>
+
+<h3>5.2. Ograniczenie backendu do localhost</h3>
+<pre><code>sudo mkdir -p /etc/systemd/system/jenkins.service.d
+sudo vim /etc/systemd/system/jenkins.service.d/override.conf</code></pre>
+<pre><code>[Service]
+Environment="JENKINS_LISTEN_ADDRESS=127.0.0.1"</code></pre>
+<pre><code>sudo systemctl daemon-reload
+sudo systemctl restart jenkins
+sudo ss -lntp | grep ':8080'</code></pre>
+<p>Finalnie Jenkins nasłuchuje wyłącznie na <code>127.0.0.1:8080</code>. Publiczny dostęp realizuje Nginx.</p>
+<div class="result pass">PASS — Jenkins LTS działa jako lokalny backend na 127.0.0.1:8080.</div>
+</section>
+<section class="chapter" id="ch-6"><h2><span class="num">6</span>GitLab CE</h2>
+<h3>6.1. Instalacja bez automatycznej pierwszej konfiguracji</h3>
+<p>GitLab CE zainstalowano świadomie bez automatycznego uruchamiania pierwszego <code>reconfigure</code>:</p>
+<pre><code>sudo GITLAB_SKIP_RECONFIGURE=true apt install -y gitlab-ce</code></pre>
+<p>Była to celowa decyzja administracyjna: najpierw należało ustawić port Puma, wyłączyć wbudowany Nginx i przygotować integrację z zewnętrznym reverse proxy, a dopiero potem wykonać pierwsze właściwe <code>gitlab-ctl reconfigure</code>.</p>
+
+<h3>6.2. Konfiguracja</h3>
+<pre><code>sudo vim /etc/gitlab/gitlab.rb</code></pre>
+<pre><code>external_url 'https://gitlab.domain'
+gitlab_rails['trusted_proxies'] = ['127.0.0.1']
+web_server['external_users'] = ['www-data']
+nginx['enable'] = false
+puma['port'] = 8081</code></pre>
+<p>Port <code>8081</code> wybrano z powodu konfliktu z Jenkins używającym <code>8080</code>. Wbudowany Nginx GitLab został wyłączony, ponieważ terminację TLS realizuje systemowy Nginx.</p>
+<pre><code>sudo gitlab-ctl reconfigure
+sudo gitlab-ctl status
+sudo ss -lntp | grep ':8081'</code></pre>
+<p>GitLab Puma działa na <code>127.0.0.1:8081</code>, a Nginx komunikuje się z GitLab poprzez GitLab Workhorse i jego Unix socket:</p>
+<pre><code>/var/opt/gitlab/gitlab-workhorse/sockets/socket</code></pre>
+
+<h3>6.3. Konta</h3>
+<p>W razie problemu z pierwszym logowaniem hasło <code>root</code> zresetowano lokalnie:</p>
+<pre><code>sudo gitlab-rake "gitlab:password:reset[root]"</code></pre>
+<p>Utworzono także zwykłego użytkownika <code>ma</code>, któremu nadano rolę <strong>Developer</strong> w prywatnym projekcie <code>root/web-demo</code>.</p>
+<div class="result pass">PASS — GitLab CE 19.4.1-ce.0 działa z zewnętrznym Nginx i lokalnym backendem Puma.</div>
+</section>
+<section class="chapter" id="ch-7"><h2><span class="num">7</span>Nginx + TLS / własne CA</h2>
+<h3>7.1. Nginx</h3>
+<pre><code>sudo apt install -y nginx
+sudo systemctl enable --now nginx
+sudo nginx -t</code></pre>
+
+<h3>7.2. Własne CA</h3>
+<p>Utworzono lokalny urząd certyfikacji <code>CI-CD Lab Root CA</code>. Klucz prywatny CA pozostał na serwerze; na klientów kopiowany był wyłącznie publiczny certyfikat CA.</p>
+<pre><code>/etc/nginx/ssl/lab-ca.key
+/etc/nginx/ssl/lab-ca.crt</code></pre>
+<p>Wystawiono osobne certyfikaty z SAN dla <code>jenkins.domain</code> i <code>gitlab.domain</code>.</p>
+
+<h3>7.3. Reverse proxy Jenkins</h3>
+<pre><code>server {
+    listen 80;
+    server_name jenkins.domain;
+    return 301 https://jenkins.domain$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name jenkins.domain;
+
+    ssl_certificate     /etc/nginx/ssl/jenkins.domain.crt;
+    ssl_certificate_key /etc/nginx/ssl/jenkins.domain.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+
+<h3>7.4. Reverse proxy GitLab</h3>
+<pre><code>server {
+    listen 80;
+    server_name gitlab.domain;
+    return 301 https://gitlab.domain$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name gitlab.domain;
+
+    ssl_certificate     /etc/nginx/ssl/gitlab.domain.crt;
+    ssl_certificate_key /etc/nginx/ssl/gitlab.domain.key;
+
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://unix:/var/opt/gitlab/gitlab-workhorse/sockets/socket;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 3600;
+        proxy_connect_timeout 300;
+        proxy_redirect off;
+    }
+}</code></pre>
+
+<h3>7.5. Klient macOS</h3>
+<p>W lokalnym <code>/etc/hosts</code> skonfigurowano:</p>
+<pre><code>192.168.64.21 jenkins.domain gitlab.domain domain</code></pre>
+<p>Publiczny certyfikat <code>lab-ca.crt</code> dodano do zaufanych certyfikatów systemowych macOS.</p>
+<pre><code>curl -I https://jenkins.domain
+curl -I https://gitlab.domain</code></pre>
+<p>Jenkins zwrócił oczekiwane <code>403 Forbidden</code> dla anonimowego użytkownika wraz z <code>X-Jenkins: 2.580.1</code>. GitLab zwrócił <code>302 Found</code> do <code>/users/sign_in</code>. Oba testy wykonano bez <code>-k</code>.</p>
+<p>Na końcu wyłączono domyślny vhost Debiana przez usunięcie wyłącznie symlinku <code>/etc/nginx/sites-enabled/default</code>, pozostawiając plik źródłowy.</p>
+<div class="result pass">PASS — Nginx terminuję TLS dla Jenkins i GitLab; certyfikaty są zaufane przez klienta.</div>
+</section>
+<section class="chapter" id="ch-8"><h2><span class="num">8</span>Repozytorium Git i deployment przez Jenkins</h2>
+<h3>8.1. Repozytorium</h3>
+<p>W GitLab utworzono prywatny projekt <code>root/web-demo</code>. Na Macu przygotowano lokalne repozytorium <code>~/web-demo</code> na gałęzi <code>main</code>.</p>
+<pre><code>git remote -v
+# origin https://gitlab.domain/root/web-demo.git
+
+git add index.html
+git commit -m "Initial web page"
+git push -u origin main</code></pre>
+<p>Pierwszy commit: <code>bf09722</code>. Kolejne wersje: <code>1a034e6</code> (1.1), <code>f976a18</code> (1.2), <code>33d3361</code> (1.3), a finalny merge: <code>dd12aee</code>.</p>
+
+<h3>8.2. Katalog deploymentu</h3>
+<pre><code>sudo groupadd webdeploy
+sudo usermod -aG webdeploy jenkins
+sudo usermod -aG webdeploy www-data
+sudo mkdir -p /var/www/web-demo
+sudo chown root:webdeploy /var/www/web-demo
+sudo chmod 2775 /var/www/web-demo
+sudo systemctl restart jenkins</code></pre>
+<p>Restart Jenkins był potrzebny, aby proces otrzymał nowe członkostwo w grupie.</p>
+
+<h3>8.3. Publikacja WWW</h3>
+<pre><code>server {
+    listen 80;
+    server_name domain;
+
+    root /var/www/web-demo;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}</code></pre>
+
+<h3>8.4. Dostęp Jenkins → GitLab</h3>
+<p>Na serwerze zainstalowany Git miał wersję <code>2.47.3</code> i ścieżkę <code>/usr/bin/git</code>. Własne CA dodano również do systemowego trust store Debiana:</p>
+<pre><code>/usr/local/share/ca-certificates/cicd-lab-ca.crt
+sudo update-ca-certificates</code></pre>
+<p>W GitLab utworzono Project Access Token <code>jenkins-read-repository</code> z rolą <code>Reporter</code> i zakresem <code>read_repository</code>. W Jenkins zapisano go jako credential o ID <code>gitlab-web-demo-read</code>.</p>
+
+<h3>8.5. Job Jenkins</h3>
+<p>Freestyle job: <code>web-demo-deploy</code>, SCM: <code>https://gitlab.domain/root/web-demo.git</code>, branch: <code>*/main</code>.</p>
+<pre><code>#!/bin/bash
+set -e
+
+echo "Deploying web-demo..."
+install -m 0664 index.html /var/www/web-demo/index.html
+echo "Deployment completed."</code></pre>
+<p>Build #4 wdrożył 1.0, a Build #5 ręcznie wdrożył 1.1. Plik finalnie ma właściciela <code>jenkins:webdeploy</code> i tryb <code>0664</code>.</p>
+<div class="result pass">PASS — Jenkins pobiera kod z prywatnego GitLab i wdraża go do /var/www/web-demo.</div>
+</section>
+<section class="chapter" id="ch-9"><h2><span class="num">9</span>Webhook i automatyczne CI/CD</h2>
+<h3>9.1. Jenkins GitLab Plugin</h3>
+<p>Zainstalowano GitLab Plugin <code>1.2155.v172271b_de71a_</code>. W jobie włączono:</p>
+<pre><code>Build when a change is pushed to GitLab
+Push Events
+Source Branch Regex: ^main$
+Target Branch Regex: ^main$</code></pre>
+<p>Wygenerowano Secret Token. Jego wartości nie umieszczono w dokumentacji.</p>
+
+<h3>9.2. Webhook GitLab</h3>
+<pre><code>https://jenkins.domain/project/web-demo-deploy</code></pre>
+<p>Webhook skonfigurowano dla Push Events z włączoną weryfikacją SSL.</p>
+
+<h3>9.3. Problem GitLab → Jenkins — lokalny adres</h3>
+<p>Pierwsza próba webhooka nie działała mimo poprawnego dostępu do Jenkins z komputera klienckiego. <code>jenkins.domain</code> wskazywał na <code>192.168.64.21</code>, czyli prywatny adres tego samego środowiska.</p>
+<p>GitLab ogranicza outbound requests do lokalnych/prywatnych celów. Było to zabezpieczenie, a nie awaria Jenkins, Nginx czy DNS.</p>
+<pre class="diagram">GitLab
+  │
+  │ webhook
+  ▼
+https://jenkins.domain
+  │
+  ▼
+192.168.64.21
+  │
+  └── prywatny/lokalny cel → domyślnie ograniczony</pre>
+<p>Zamiast szeroko zezwalać na całą sieć lokalną, dopuszczono tylko wymagany cel:</p>
+<pre><code>jenkins.domain:443</code></pre>
+<p>Drugim niezależnym warunkiem było zaufanie TLS. Publiczny certyfikat własnego CA dodano do GitLab:</p>
+<pre><code>/etc/gitlab/trusted-certs/cicd-lab-ca.crt
+sudo gitlab-ctl reconfigure</code></pre>
+<pre class="diagram">             GitLab
+                │
+       ┌────────┴────────┐
+       ▼                 ▼
+outbound allowed      TLS trust
+jenkins.domain:443    CI-CD Lab Root CA
+       │                 │
+       └────────┬────────┘
+                ▼
+          webhook HTTPS
+                ▼
+             Jenkins</pre>
+<p>Po spełnieniu obu warunków test Push Event zakończył się:</p>
+<pre><code>Hook executed successfully: HTTP 200</code></pre>
+
+<h3>9.4. Pełny test automatyczny</h3>
+<p>Build #6 został uruchomiony przez test webhooka. Następnie rzeczywisty commit wersji 1.2 (<code>f976a18</code>) uruchomił Build #7 automatycznie:</p>
+<pre><code>Started by GitLab push by Administrator CI/CD
+...
+Finished: SUCCESS</code></pre>
+<p>Strona została zaktualizowana bez ręcznego użycia <code>Build Now</code>.</p>
+
+<h3>9.5. Rozdzielenie uwierzytelnienia</h3>
+<pre class="diagram">Jenkins → GitLab
+Project Access Token
+Reporter + read_repository
+
+GitLab → Jenkins
+Webhook Secret Token + HTTPS</pre>
+<div class="result pass">PASS — webhook GitLab → Jenkins działa po HTTPS, z weryfikacją TLS i ograniczonym wyjątkiem outbound.</div>
+</section>
+<section class="chapter" id="ch-10"><h2><span class="num">10</span>Protected Branch + Merge Request</h2>
+<h3>10.1. Cel</h3>
+<p>Gałąź <code>main</code> została zabezpieczona jako Protected Branch. Użytkownik <code>ma</code> ma rolę Developer: może tworzyć branche i Merge Request, ale nie może bezpośrednio wdrażać zmian przez push do <code>main</code>.</p>
+
+<h3>10.2. Test blokady</h3>
+<p>Po zmianie strony do wersji 1.3 powstał commit:</p>
+<pre><code>33d3361 Update web page to version 1.3</code></pre>
+<p>Bezpośredni push został prawidłowo odrzucony:</p>
+<pre><code>remote: GitLab: You are not allowed to push code to protected branches on this project.
+! [remote rejected] main -> main (pre-receive hook declined)</code></pre>
+
+<h3>10.3. Feature branch i MR</h3>
+<pre><code>git switch -c update-version-1.3
+git push -u origin update-version-1.3</code></pre>
+<p>Po push feature brancha produkcyjna strona nadal pokazywała 1.2 — filtr webhooka nie wdrażał gałęzi roboczej.</p>
+<p>Utworzono Merge Request:</p>
+<pre><code>source: update-version-1.3
+target: main
+title: Update web page to version 1.3
+delete source branch: yes
+squash: no</code></pre>
+<p>Developer mógł utworzyć MR, ale nie mógł wykonać merge do chronionego <code>main</code>. Merge wykonał <code>root</code>.</p>
+
+<h3>10.4. Automatyczny deployment po merge</h3>
+<pre><code>Started by GitLab push by Administrator CI/CD
+Checking out Revision dd12aeed4707253e3e7582db917f6269a8a0d5cf
+Commit message: "Merge branch 'update-version-1.3' into 'main'"
+Deploying web-demo...
+Deployment completed.
+Finished: SUCCESS</code></pre>
+<p>Po merge strona automatycznie pokazała wersję 1.3.</p>
+
+<h3>10.5. Porządkowanie repozytorium</h3>
+<pre><code>git fetch --prune origin
+git switch main
+git pull --ff-only
+git branch -d update-version-1.3
+git status</code></pre>
+<p>Finalnie lokalny <code>main</code> był zgodny z <code>origin/main</code>, a working tree czysty.</p>
+<div class="result pass">PASS — chroniony main wymusza kontrolowany workflow feature branch → MR → merge → automatyczny deployment.</div>
+</section>
+<section class="chapter" id="ch-11"><h2><span class="num">11</span>Bezpieczeństwo, porty i audyt</h2>
+<h3>11.1. Usługi</h3>
+<pre><code>systemctl is-active nginx
+systemctl is-active jenkins
+systemctl is-active ssh
+sudo gitlab-ctl status
+sudo ss -lntp</code></pre>
+<p>Nginx, Jenkins i SSH były aktywne. GitLab raportował działające komponenty, m.in. Gitaly, Workhorse, PostgreSQL, Redis, Sidekiq, Puma, Prometheus i Alertmanager.</p>
+
+<h3>11.2. Najważniejsze porty</h3>
+<table><tr><th>Port</th><th>Bind</th><th>Usługa / znaczenie</th></tr>
+<tr><td>22</td><td>0.0.0.0 / socket IPv6</td><td>SSH</td></tr>
+<tr><td>80</td><td>0.0.0.0</td><td>Nginx HTTP</td></tr>
+<tr><td>443</td><td>0.0.0.0</td><td>Nginx HTTPS</td></tr>
+<tr><td>8080</td><td>127.0.0.1</td><td>Jenkins</td></tr>
+<tr><td>8081</td><td>127.0.0.1</td><td>GitLab Puma</td></tr>
+<tr><td>9090</td><td>127.0.0.1</td><td>Prometheus</td></tr>
+<tr><td>9093</td><td>127.0.0.1</td><td>Alertmanager web</td></tr>
+<tr><td>9094</td><td>* (IPv4)</td><td>Alertmanager cluster</td></tr>
+<tr><td>9100</td><td>127.0.0.1</td><td>Node Exporter</td></tr>
+<tr><td>9121</td><td>127.0.0.1</td><td>Redis Exporter</td></tr>
+<tr><td>9168</td><td>127.0.0.1</td><td>GitLab Exporter</td></tr>
+<tr><td>9187</td><td>127.0.0.1</td><td>Postgres Exporter</td></tr>
+<tr><td>9229</td><td>127.0.0.1</td><td>Workhorse metrics</td></tr>
+<tr><td>9236</td><td>127.0.0.1</td><td>Gitaly</td></tr>
+</table>
+
+<h3>11.3. IPv6</h3>
+<pre><code>cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+cat /proc/sys/net/ipv6/conf/default/disable_ipv6
+cat /proc/sys/net/ipv6/conf/lo/disable_ipv6
+ip -6 addr</code></pre>
+<p>Wszystkie parametry miały wartość <code>1</code>, a <code>ip -6 addr</code> nie zwracało adresów.</p>
+
+<h3>11.4. Alertmanager 9094 — analiza i nieudana próba ograniczenia</h3>
+<p>Audyt wykazał <code>*:9094</code> na IPv4. Proces Alertmanager uruchamiał się bez jawnego argumentu cluster listener, a jego domyślna wartość to <code>0.0.0.0:9094</code>.</p>
+<p>Przed eksperymentem wykonano kopię <code>/etc/gitlab/gitlab.rb.bak-before-alertmanager</code>, a następnie przetestowano:</p>
+<pre><code># Disable Alertmanager HA cluster listener - single-node CI/CD lab
+alertmanager['flags'] = {
+  'cluster.listen-address' => ''
+}</code></pre>
+<p>Po <code>gitlab-ctl reconfigure</code> i restarcie Alertmanager port 9094 nadal był aktywny. Wygenerowany skrypt GitLab nie zawierał oczekiwanej flagi. Nie modyfikowano ręcznie plików zarządzanych przez GitLab. Nieskuteczny blok usunięto z <code>gitlab.rb</code>.</p>
+<div class="note"><strong>Decyzja:</strong> pozostawić rzeczywisty stan <code>*:9094</code> udokumentowany. Ewentualne dalsze ograniczenie wykonać na warstwie firewalla zamiast hackować pliki generowane przez GitLab.</div>
+
+<h3>11.5. Model bezpieczeństwa</h3>
+<ul>
+<li>Jenkins i GitLab Puma nasłuchują tylko na localhost.</li>
+<li>HTTPS kończy się na Nginx.</li>
+<li>Własne CA jest zaufane; nie wyłączono docelowo weryfikacji TLS.</li>
+<li>Jenkins ma minimalny dostęp do repozytorium: Reporter + <code>read_repository</code>.</li>
+<li>Webhook ma osobny Secret Token.</li>
+<li><code>main</code> jest Protected Branch.</li>
+<li>Developer pracuje przez feature branch i Merge Request.</li>
+</ul>
+<div class="result pass">PASS — stan portów i zabezpieczeń został zweryfikowany, a wyjątek 9094 świadomie udokumentowany.</div>
+</section>
+<section class="chapter" id="ch-12"><h2><span class="num">12</span>Testy końcowe i odbiór środowiska</h2>
+<h3>12.1. SWAP</h3>
+<pre><code>lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+free -h
+sudo /usr/sbin/swapon --show</code></pre>
+<p><code>/dev/vdb1</code> = 20G swap, łącznie około 23 GiB.</p>
+
+<h3>12.2. Jenkins HTTPS</h3>
+<pre><code>curl -I https://jenkins.domain</code></pre>
+<pre><code>HTTP/1.1 403 Forbidden
+Server: nginx
+X-Jenkins: 2.580.1
+X-Jenkins-Language: en
+X-You-Are-Authenticated-As: anonymous</code></pre>
+<p>403 jest oczekiwane dla anonimowego użytkownika bez Hudson.Read. Brak <code>-k</code> potwierdza zaufanie TLS.</p>
+
+<h3>12.3. GitLab HTTPS</h3>
+<pre><code>curl -I https://gitlab.domain</code></pre>
+<pre><code>HTTP/1.1 302 Found
+Server: nginx
+Location: https://gitlab.domain/users/sign_in</code></pre>
+
+<h3>12.4. Repozytorium</h3>
+<pre><code>git remote -v
+git status
+git log --oneline -5
+grep 'Wersja strony' index.html</code></pre>
+<pre><code>dd12aee Merge branch 'update-version-1.3' into 'main'
+33d3361 Update web page to version 1.3
+f976a18 Update web page to version 1.2
+1a034e6 Update web page to version 1.1
+bf09722 Initial web page</code></pre>
+<p>Repozytorium było czyste i zgodne z <code>origin/main</code>; wersja strony: <strong>1.3</strong>.</p>
+
+<h3>12.5. Deployment</h3>
+<pre><code>sudo ls -l /var/www/web-demo/index.html
+sudo grep 'Wersja strony' /var/www/web-demo/index.html</code></pre>
+<p>Plik: <code>jenkins:webdeploy</code>, tryb <code>0664</code>, wersja 1.3.</p>
+<p>SHA-256 źródła i deploymentu:</p>
+<pre><code>8a89074fb882ab9e360b67978404eb384807214bfb99b1a7d92de561e59a84c8</code></pre>
+
+<h3>12.6. Nginx WWW</h3>
+<pre><code>curl -s http://domain/ | grep 'Wersja strony'
+curl -I http://domain/</code></pre>
+<pre><code>HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html
+Content-Length: 1455</code></pre>
+
+<h3>12.7. BONUS — automatyczne CI/CD</h3>
+<pre><code>Hook executed successfully: HTTP 200</code></pre>
+<p>Rzeczywisty merge wersji 1.3 automatycznie uruchomił Jenkins i deployment, bez ręcznego Build Now.</p>
+
+<h3>12.8. Macierz odbiorowa</h3>
+<table><tr><th>Wymaganie</th><th>Wynik</th></tr>
+<tr><td>Dodatkowy dysk 20 GB → SWAP</td><td class="ok">PASS</td></tr>
+<tr><td>Jenkins → https://jenkins.domain</td><td class="ok">PASS</td></tr>
+<tr><td>GitLab → https://gitlab.domain</td><td class="ok">PASS</td></tr>
+<tr><td>Repozytorium Git + HTML</td><td class="ok">PASS</td></tr>
+<tr><td>Jenkins pobiera kod i wdraża do /var/www</td><td class="ok">PASS</td></tr>
+<tr><td>Nginx publikuje aktualną stronę → HTTP 200</td><td class="ok">PASS</td></tr>
+<tr><td>BONUS: GitLab webhook → Jenkins → auto-deploy</td><td class="ok">PASS</td></tr>
+</table>
+<div class="result pass big">WYNIK: 6/6 WYMAGAŃ + BONUS ✅</div>
+</section>
+<section class="chapter" id="ch-13"><h2><span class="num">13</span>Podsumowanie i dalszy rozwój środowiska</h2>
+<p>Z prostego zadania instalacyjnego powstało kompletne laboratorium CI/CD łączące administrację Linux, Git, GitLab, Jenkins, Nginx, TLS, kontrolę dostępu i troubleshooting.</p>
+<h3>13.1. Finalny workflow</h3>
+<pre class="diagram">Developer ma
+    │
+    ▼
+feature branch
+    │
+    ▼
+GitLab
+    │
+    ▼
+Merge Request
+    │
+    ▼
+Protected main
+    │
+    ▼
+HTTPS webhook
+    │
+    ▼
+Jenkins
+    │
+    ▼
+/var/www/web-demo
+    │
+    ▼
+Nginx
+    │
+    ▼
+VERSION 1.3</pre>
+
+<h3>13.2. Najważniejsze problemy rozwiązane podczas laboratorium</h3>
+<ul>
+<li>DNS po zmianie DHCP na statyczne IPv4.</li>
+<li>Konflikt portu 8080 między Jenkins i GitLab Puma.</li>
+<li>Świadoma instalacja GitLab z <code>GITLAB_SKIP_RECONFIGURE=true</code> przed pierwszym właściwym reconfigure.</li>
+<li>Uprawnienia Jenkins do katalogu deploymentu i konieczność restartu procesu po dodaniu grupy <code>webdeploy</code>.</li>
+<li>GitLab → Jenkins: blokada outbound request do lokalnego/prywatnego adresu; zamiast globalnego zezwolenia dopuszczono <code>jenkins.domain:443</code>.</li>
+<li>GitLab → Jenkins: niezależny problem z zaufaniem TLS rozwiązany przez <code>/etc/gitlab/trusted-certs/cicd-lab-ca.crt</code>.</li>
+<li>Protected Branch: bezpośredni push Developera do <code>main</code> został prawidłowo odrzucony.</li>
+<li>Alertmanager <code>*:9094</code>: nieudana próba zmiany została wycofana i udokumentowana zamiast ręcznej ingerencji w pliki zarządzane przez GitLab.</li>
+</ul>
+
+<h3>13.3. Kierunki dalszego rozwoju</h3>
+<ul>
+<li>przeniesienie Freestyle job do <code>Jenkinsfile</code> i Pipeline as Code,</li>
+<li>automatyzacja odtworzenia środowiska przez Ansible,</li>
+<li>monitoring usług, HTTP/HTTPS, CPU, RAM, SWAP i przestrzeni dyskowej,</li>
+<li>firewall i ograniczenie ekspozycji m.in. portu 9094,</li>
+<li>backup GitLab, Jenkins, Nginx i materiałów CA,</li>
+<li>rozbudowa o osobne środowiska DEV / TEST / PROD.</li>
+</ul>
+
+<div class="result pass big">LABORATORIUM CI/CD — STATUS: OPERATIONAL / PASS ✅</div>
+</section>
+<footer>
+<p><strong>Laboratorium CI/CD — GitLab CE + Jenkins + Nginx</strong></p>
+<p>Dokument opisuje rzeczywiście wykonane kroki, w tym diagnostykę, nieudane próby i podjęte decyzje administracyjne. Sekrety, hasła, tokeny i prywatny klucz CA nie zostały umieszczone w dokumentacji.</p>
+</footer>
+</div>
+<a class="top" href="#top" aria-label="Powrót na górę">↑ góra</a>
+</body>
+</html>
